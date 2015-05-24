@@ -1,0 +1,107 @@
+---
+title: "PML Project - Human Activity Recognition"
+author: "Bob Graves"
+date: "May 24, 2015"
+output: html_document
+---
+
+# Executive Summary
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit, it is now possible to collect a large amount of data about personal activity relatively inexpensively. In this project, our goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+These ways are exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). Only Class A is defined as "Correct".
+
+Two datasets (train and test) were utilized. Through a series of data cleaning,  machine learning using a random forest approach, a model with and estimated error rate of < 1% was created. 
+
+During cross-validation, an accuracy of > 99% was determined, reinforcing the approach using RandomForests.
+
+# Data
+The training data for this project are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+The training data was split into two groups during modeling. One group for training (70% of data) and the other group for cross-validation (crossval). 
+
+The test data, with 20 specific test cases for evaluating the project, are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv 
+
+Both data sets were downloaded and required cleaning (e.g. removing NAs, identification columns) prior to using.
+
+The field "classe" is the predicted item.
+## Libraries
+Primarily, caret and randomForest are used in the project.
+```{r}
+library(randomForest)
+library(caret)
+```
+## Repeatability
+The seed was set for repeatability. 
+```{r}
+set.seed(1153)
+```
+## Data load and cleaning
+After inspecting the data, the first 7 columns are noted as identification and timestamp, so they have been removed since they would have no bearing in the model.
+
+The data had many NAs, so columns with NAs are removed.
+```{r}
+trainingData<-read.csv("pml-training.csv",na.strings= c("NA",""," "))
+rmCols<-is.na(trainingData[1,])
+rmCols[1:7]=TRUE
+trainingClean<-trainingData[,!rmCols]
+# split raw training into training and cross validation data
+inTrain <- createDataPartition(y = trainingClean$classe, p = 0.7, list = FALSE)
+training <- trainingClean[inTrain, ]
+crossval <- trainingClean[-inTrain, ]
+```
+We go ahead and set up the testing data using the same processing rules, but save it for the final predictions and scoring.
+```{r}
+# clean the test with same rules from training 
+# (expect 20 rows for project scoring)
+testingData<-read.csv("pml-testing.csv",na.strings= c("NA",""," "))
+testing<-testingData[,!rmCols]
+```
+# Model
+A random forest approach was attempted, primarily due to the number of factors affecting the predictor (classe), as well as its reputation for accuracy.
+```{r}
+model <- randomForest(classe ~ ., data = training)
+model
+```
+We see from the model an expected error rate of 0.5%, which is a good indicator of an accurate model. Plotting the model, we see that after about 50 or so trees, the error rate levels out, so the approach of random forests appears to be ok.
+```{r}
+plot(model)
+```
+
+# Cross-Validation
+As noted earlier, we split the training data into two groups - training and crossval. The crossval data are used to check our model. As noted in the following confusion matrix, the accuracy of the random forest model is 99.58%, which is good for our goal of an accurate model.
+```{r}
+# use the crossval data (subset of training) to check predictions
+predictCV <- predict(model, crossval)
+confusionMatrix(crossval$classe, predictCV)
+```
+
+# Predictions
+The real test of the model is with the testing data. Using the testing dataset, prepared using the same data cleansing rules as our training data, we apply the randomForest model.
+```{r}
+predictTesting <- predict(model, testing)
+predictTesting
+```
+
+# Conclusion
+The selection of random forests as an approach produced a model with low estimated error rate (0.5%) and highly accurate (99.58%) predictions. These figures met the goal of accurate prediction. 
+
+One can conclude that it is possible, with sufficient sensors, to accurately predict human activity in controlled experiments.
+
+# Submit Predictions for Scoring
+Per the instructions of the project, predictions are saved to files for submission.
+```{r,echo=FALSE}
+pml_write_files = function(x){
+   n = length(x)
+   for(i in 1:n){
+     filename = paste0("problem_id_",i,".txt")
+     write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+   }
+}
+```
+```{r}
+pml_write_files(predictTesting)
+```
+#Citations
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har 
+
+
